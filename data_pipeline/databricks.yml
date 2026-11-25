@@ -1,0 +1,29 @@
+bundle:
+  name: deadlock-counterbuild-bot
+
+resources:
+  jobs:
+    deadlock_counterbuild_daily:
+      name: deadlock-counterbuild-daily
+      schedule:
+        quartz_cron_expression: "0 30 5 * * ?"
+        timezone_id: "UTC"
+        pause_status: PAUSED
+      tasks:
+        - task_key: bronze_ingest
+          notebook_task:
+            notebook_path: ./notebooks/01_bronze_ingest.py
+        - task_key: silver_transform
+          depends_on:
+            - task_key: bronze_ingest
+          notebook_task:
+            notebook_path: ./notebooks/02_silver_transform.py
+        - task_key: gold_aggregate
+          depends_on:
+            - task_key: silver_transform
+          notebook_task:
+            notebook_path: ./notebooks/03_gold_aggregate.py
+
+targets:
+  prod:
+    default: true

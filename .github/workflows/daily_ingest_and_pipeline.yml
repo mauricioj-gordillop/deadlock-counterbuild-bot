@@ -1,0 +1,61 @@
+name: Daily Deadlock Ingest & Databricks Pipeline
+
+on:
+  schedule:
+    # Runs daily at 05:00 UTC
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+      pages:
+        description: "Number of pages to fetch from /v1/matches/metadata"
+        required: false
+        default: "10"
+      limit_per_request:
+        description: "Matches per page"
+        required: false
+        default: "100"
+
+jobs:
+  ingest_and_run_databricks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      DEADLOCK_API_KEY: ${{ secrets.DEADLOCK_API_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install ingestion dependencies
+        run: pip install --no-cache-dir -r ingestion/requirements.txt
+
+      - name: Fetch reference assets and match metadata from Deadlock API
+        run: |
+          python ingestion/fetch_reference.py --out data/reference
+          python ingestion/fetch_matches.py \
+            --pages "${{ inputs.pages || '10' }}" \
+            --limit-per-request "${{ inputs.limit_per_request || '100' }}" \
+            --out data/raw
+
+      - name: Set up Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Upload raw JSON files to Databricks Unity Catalog Volume
+        run: |
+          databricks schemas create deadlock workspace || true
+          databricks volumes create workspace deadlock raw MANAGED || true
+          databricks fs cp data/reference/ dbfs:/Volumes/workspace/deadlock/raw/reference/ --recursive --overwrite
+          databricks fs cp data/raw/ dbfs:/Volumes/workspace/deadlock/raw/matches/ --recursive --overwrite
+
+      - name: Deploy and run Databricks Medallion job (01 -> 02 -> 03)
+        working-directory: data_pipeline
+        run: |
+          databricks bundle deploy
+          databricks bundle run deadlock_counterbuild_daily
