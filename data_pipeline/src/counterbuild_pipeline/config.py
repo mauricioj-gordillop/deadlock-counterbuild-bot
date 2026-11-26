@@ -28,6 +28,7 @@ class PipelineConfig:
     gold_counter_items_table: str = "gold_counter_items"
 
     min_duration_s: int = 900
+    max_match_age_days: int | None = 30
     min_games_with_item: int = 50
     min_games_without_item: int = 50
     top_n_per_pair: int = 10

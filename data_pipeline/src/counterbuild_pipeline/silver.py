@@ -88,6 +88,10 @@ def clean_matches(parsed_df: DataFrame, cfg: PipelineConfig) -> DataFrame:
         )
     )
 
+    if cfg.max_match_age_days is not None and cfg.max_match_age_days > 0:
+        min_epoch = F.unix_timestamp(F.current_timestamp()) - F.lit(cfg.max_match_age_days * 86400)
+        valid = valid.filter(F.col("start_time_norm") >= min_epoch)
+
     dedup_window = Window.partitionBy("match_id").orderBy(F.col("ingested_at").desc_nulls_last())
     deduped = (
         valid.withColumn("_rn", F.row_number().over(dedup_window))
@@ -180,6 +184,8 @@ def build_dim_heroes(bronze_heroes_df: DataFrame) -> DataFrame:
         F.col("id").isNotNull()
         & F.col("name").isNotNull()
         & F.coalesce(F.col("player_selectable"), F.lit(True))
+        & (~F.coalesce(F.col("disabled"), F.lit(False)))
+        & (~F.coalesce(F.col("in_development"), F.lit(False)))
     )
 
     dedup_w = Window.partitionBy("id").orderBy(F.col("name").asc())

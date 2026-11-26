@@ -63,7 +63,7 @@ Abre tu avatar (esquina superior derecha) → **Settings** → **Developer** →
 3. **¿Cómo se ejecuta el workflow?** [daily_ingest_and_pipeline.yml](file:///c:/Users/Mauricio/Mi%20unidad/Ing.%20Informatica/Proyectos/deadlock-counterbuild-bot/.github/workflows/daily_ingest_and_pipeline.yml) funciona de dos formas:
    - **Automáticamente:** cada día a las **`05:00 UTC`** (00:00 UTC-5) sobre la rama `main`.
    - **Manualmente:** desde **Actions** → **Daily Deadlock Ingest & Databricks Pipeline** → **Run workflow** *(no corre automáticamente en cada `git push`)*.
-4. Lanza la primera ejecución manual haciendo clic en **Run workflow** (puedes dejar `pages = 10` y `limit_per_request = 100`, o subir `pages` a `30` para acumular más muestra el primer día). El workflow descargará héroes/ítems y partidas, los subirá al Volume y desplegará/ejecutará [databricks.yml](file:///c:/Users/Mauricio/Mi%20unidad/Ing.%20Informatica/Proyectos/deadlock-counterbuild-bot/data_pipeline/databricks.yml) (`01 → 02 → 03`).
+4. Lanza la primera ejecución manual haciendo clic en **Run workflow** (por defecto descarga `15` páginas de `1000` partidas de los últimos `7` días —`15.000` partidas recientes—). El workflow descargará héroes/ítems y partidas, reemplazará el lote temporal en `raw/matches/` y desplegará/ejecutará [databricks.yml](file:///c:/Users/Mauricio/Mi%20unidad/Ing.%20Informatica/Proyectos/deadlock-counterbuild-bot/data_pipeline/databricks.yml) (`01 → 02 → 03`), acumulando incrementalmente las partidas recientes (ventana móvil de `30` días en Silver).
 
 ---
 

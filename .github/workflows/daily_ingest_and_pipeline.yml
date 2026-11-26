@@ -9,11 +9,15 @@ on:
       pages:
         description: "Number of pages to fetch from /v1/matches/metadata"
         required: false
-        default: "10"
+        default: "15"
       limit_per_request:
-        description: "Matches per page"
+        description: "Matches per page (max 1000)"
         required: false
-        default: "100"
+        default: "1000"
+      lookback_days:
+        description: "Days back from now for min_unix_timestamp"
+        required: false
+        default: "7"
 
 jobs:
   ingest_and_run_databricks:
@@ -36,12 +40,13 @@ jobs:
       - name: Install ingestion dependencies
         run: pip install --no-cache-dir -r ingestion/requirements.txt
 
-      - name: Fetch reference assets and match metadata from Deadlock API
+      - name: Fetch reference assets and recent match metadata from Deadlock API
         run: |
           python ingestion/fetch_reference.py --out data/reference
           python ingestion/fetch_matches.py \
-            --pages "${{ inputs.pages || '10' }}" \
-            --limit-per-request "${{ inputs.limit_per_request || '100' }}" \
+            --pages "${{ inputs.pages || '15' }}" \
+            --limit-per-request "${{ inputs.limit_per_request || '1000' }}" \
+            --lookback-days "${{ inputs.lookback_days || '7' }}" \
             --out data/raw
 
       - name: Set up Databricks CLI
@@ -51,6 +56,7 @@ jobs:
         run: |
           databricks schemas create deadlock workspace || true
           databricks volumes create workspace deadlock raw MANAGED || true
+          databricks fs rm dbfs:/Volumes/workspace/deadlock/raw/matches/ --recursive || true
           databricks fs cp data/reference/ dbfs:/Volumes/workspace/deadlock/raw/reference/ --recursive --overwrite
           databricks fs cp data/raw/ dbfs:/Volumes/workspace/deadlock/raw/matches/ --recursive --overwrite
 

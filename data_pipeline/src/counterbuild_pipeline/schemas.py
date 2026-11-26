@@ -53,6 +53,8 @@ HERO_REF_SCHEMA = StructType(
         StructField("id", IntegerType(), True),
         StructField("name", StringType(), True),
         StructField("player_selectable", BooleanType(), True),
+        StructField("disabled", BooleanType(), True),
+        StructField("in_development", BooleanType(), True),
     ]
 )
 

@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -60,11 +61,12 @@ def _extract_records(payload: Any) -> list[dict[str, Any]]:
 def fetch_matches(
     *,
     out_dir: Path,
-    limit_per_request: int = 100,
-    pages: int = 5,
+    limit_per_request: int = 1000,
+    pages: int = 15,
     min_unix_timestamp: int | None = None,
+    lookback_days: int = 7,
     api_key: str | None = None,
-    timeout_s: float = 30.0,
+    timeout_s: float = 60.0,
     dump_schema: bool = False,
 ) -> list[Path]:
     """Paginate /v1/matches/metadata and write each page as JSONL."""
@@ -72,6 +74,8 @@ def fetch_matches(
     headers = build_headers(api_key)
     seen_match_ids: set[int] = set()
     written_files: list[Path] = []
+    if min_unix_timestamp is None and lookback_days > 0:
+        min_unix_timestamp = int(time.time()) - lookback_days * 86400
     current_min_ts = min_unix_timestamp
     current_min_match_id: int | None = None
     dumped = False
@@ -143,11 +147,17 @@ def fetch_matches(
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="Fetch raw Deadlock match metadata into JSONL files.")
-    parser.add_argument("--limit-per-request", type=int, default=100, help="Matches requested per page")
-    parser.add_argument("--pages", type=int, default=5, help="Maximum pages to fetch")
+    parser.add_argument("--limit-per-request", type=int, default=1000, help="Matches requested per page")
+    parser.add_argument("--pages", type=int, default=15, help="Maximum pages to fetch")
     parser.add_argument("--min-unix-timestamp", type=int, default=None, help="Filter matches >= Unix timestamp")
+    parser.add_argument(
+        "--lookback-days",
+        type=int,
+        default=7,
+        help="Days back from now when --min-unix-timestamp is omitted (0 disables time filter)",
+    )
     parser.add_argument("--out", type=Path, default=Path("data/raw"), help="Output directory for JSONL files")
-    parser.add_argument("--timeout", type=float, default=30.0, help="HTTP timeout in seconds")
+    parser.add_argument("--timeout", type=float, default=60.0, help="HTTP timeout in seconds")
     parser.add_argument(
         "--api-key",
         type=str,
@@ -165,6 +175,7 @@ def main() -> None:
         limit_per_request=args.limit_per_request,
         pages=args.pages,
         min_unix_timestamp=args.min_unix_timestamp,
+        lookback_days=args.lookback_days,
         api_key=args.api_key,
         timeout_s=args.timeout,
         dump_schema=args.dump_schema,
